@@ -1,0 +1,4 @@
+main: com.mystipixel.royalskyblock.ext.ecoskills.EcoSkillsExtension
+name: EcoSkills
+version: ${project.version}
+author: Mystipixel
