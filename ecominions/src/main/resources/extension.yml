@@ -1,0 +1,4 @@
+main: com.mystipixel.royalskyblock.ext.ecominions.EcoMinionsExtension
+name: EcoMinions
+version: ${project.version}
+author: Mystipixel

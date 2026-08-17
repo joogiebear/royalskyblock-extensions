@@ -25,6 +25,18 @@
     <modules>
         <module>ecoskills</module>
         <module>ecomobs</module>
+        <!--
+          ecominions is written but NOT built — see ecominions/BLOCKED.md.
+
+          It is the only adapter that registers libreforge elements, so it is the only one that must
+          compile against libreforge, and libreforge cannot be resolved by Maven: the published
+          com.willfp:libreforge artifact is a 261-byte empty stub, and the real classes live in
+          libreforge.core:common, which is in no public repository. Compiling against the shipped jar
+          instead fails because its Kotlin is relocated, leaving the metadata unreadable.
+
+          Left in the module list as a comment rather than deleted: the code is finished and correct,
+          and the problem is the toolchain.
+        -->
     </modules>
 
     <properties>
@@ -33,6 +45,7 @@
 
         <!-- Kept in step with what the server actually runs; see tools/install-deps.ps1. -->
         <eco.version>2026.33</eco.version>
+        <libreforge.version>2026.33</libreforge.version>
         <royalskyblock.version>2026.32.0</royalskyblock.version>
         <paper.version>26.2.build.40-alpha</paper.version>
     </properties>
@@ -41,6 +54,20 @@
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <!--
+          eco and libreforge come from here, NOT from the jars on the server.
+
+          The shipped jars are shaded: their Kotlin is relocated to com.willfp.eco.libs.kotlin, which
+          leaves the @Metadata unreadable to the Kotlin compiler. Java modules survive that - the
+          Java-visible API is intact - but Kotlin ones do not: top-level functions like `arguments`
+          and `get` disappear entirely, and open vals such as Condition.description stop being
+          overridable. Compiling against the published artifacts is what makes a Kotlin extension
+          possible at all.
+        -->
+        <repository>
+            <id>auxilor</id>
+            <url>https://repo.auxilor.io/repository/maven-public/</url>
         </repository>
     </repositories>
 
@@ -56,6 +83,12 @@
                 <groupId>com.willfp</groupId>
                 <artifactId>eco</artifactId>
                 <version>${eco.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.willfp</groupId>
+                <artifactId>libreforge</artifactId>
+                <version>${libreforge.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>

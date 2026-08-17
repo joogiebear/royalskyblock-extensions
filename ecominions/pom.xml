@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.mystipixel</groupId>
+        <artifactId>royalskyblock-extensions</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>ecominions-extension</artifactId>
+    <name>EcoMinions</name>
+
+    <!--
+      The only Kotlin module here, and only because libreforge is Kotlin: a Condition is an abstract
+      Kotlin class whose arguments come from a DSL, and porting that to Java would mean inventing a
+      way to call an API that already has a working caller. The code moved across as it was.
+    -->
+    <properties>
+        <kotlin.version>2.3.0</kotlin.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.willfp</groupId>
+            <artifactId>eco</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.willfp</groupId>
+            <artifactId>libreforge</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mystipixel</groupId>
+            <artifactId>royalskyblock</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+            <version>${kotlin.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>EcoMinions</finalName>
+
+        <plugins>
+            <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+                <version>${kotlin.version}</version>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <phase>process-sources</phase>
+                        <goals><goal>compile</goal></goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
+                            </sourceDirs>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <jvmTarget>25</jvmTarget>
+                </configuration>
+            </plugin>
+
+            <!--
+              Relocate Kotlin to match eco's own relocation, so every eco plugin shares one Kotlin
+              runtime. Without this the compiled classes reference kotlin.jvm.internal.Intrinsics,
+              which does not exist at runtime - eco ships it as com.willfp.eco.libs.kotlin.
+              kotlin-stdlib is `provided`, so nothing is bundled; only our own references are rewritten.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <relocations>
+                                <relocation>
+                                    <pattern>kotlin</pattern>
+                                    <shadedPattern>com.willfp.eco.libs.kotlin</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
