@@ -24,6 +24,7 @@
 
     <modules>
         <module>ecoskills</module>
+        <module>ecomobs</module>
     </modules>
 
     <properties>

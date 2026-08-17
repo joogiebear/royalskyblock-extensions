@@ -1,0 +1,4 @@
+main: com.mystipixel.royalskyblock.ext.ecomobs.EcoMobsExtension
+name: EcoMobs
+version: ${project.version}
+author: Mystipixel

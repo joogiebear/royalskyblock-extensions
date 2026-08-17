@@ -1,0 +1,24 @@
+# EcoMobs extension — plugins/RoyalSkyblock/extensions/EcoMobs/config.yml
+#
+# This file is about how RoyalSkyblock USES EcoMobs. It does not configure EcoMobs itself (its own
+# mobs, drops and spawn rules stay in plugins/EcoMobs/), and it does not decide which mobs an island
+# spawns — that is island-mobs in RoyalSkyblock's config.yml, because it is a fact about islands.
+#
+# What lives here is the one decision that belongs to the adapter: how hard an island's level hits.
+
+# Scale a spawned EcoMob's health and damage by the level of the island it spawned on.
+#
+# Done in code rather than in EcoMobs' own config because EcoMobs evaluates spawn conditions against
+# the spawn LOCATION, with no player in context, and libreforge's placeholder conditions resolve
+# through the player — so %royalskyblock_island_level% cannot resolve at an EcoMobs spawn. Reading
+# the island level from the mob's world after it spawns needs no player at all.
+strength:
+  enabled: true
+
+  # multiplier = 1 + (island level * scale), clamped to [1, max-multiplier].
+  #
+  # These are deliberately small. At 0.002, a level 500 island doubles mob health; the cap is what
+  # stops a very high level island producing something unkillable rather than merely hard.
+  health-scale-per-level: 0.002
+  damage-scale-per-level: 0.0015
+  max-multiplier: 5.0

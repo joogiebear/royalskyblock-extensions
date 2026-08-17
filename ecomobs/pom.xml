@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.mystipixel</groupId>
+        <artifactId>royalskyblock-extensions</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>ecomobs-extension</artifactId>
+    <name>EcoMobs</name>
+
+    <!--
+      No dependency on EcoMobs itself. Every published com.willfp:EcoMobs artifact is an empty
+      two-entry stub containing no classes - verified across 2026.27 through 2026.32 - so there is
+      nothing to compile against. The shipped plugin jar does contain the classes, so they are
+      resolved reflectively at runtime.
+    -->
+    <dependencies>
+        <dependency>
+            <groupId>com.willfp</groupId>
+            <artifactId>eco</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mystipixel</groupId>
+            <artifactId>royalskyblock</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>EcoMobs</finalName>
+    </build>
+</project>
