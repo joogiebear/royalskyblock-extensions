@@ -68,6 +68,6 @@ without file access — at the cost of a jar being present no longer meaning it 
 mvn clean package            # -> */target/<Name>.jar
 ```
 
-Requires JDK 25. Neither eco nor RoyalSkyblock is published anywhere the build can reach, so both are
+Requires JDK 25 to build; the adapters run inside RoyalSkyblock on a 26.2-or-newer server. Neither eco nor RoyalSkyblock is published anywhere the build can reach, so both are
 installed from the jars the server actually runs — compiling against the running jars means an
 extension meets exactly the API it was built for.
