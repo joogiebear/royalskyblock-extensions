@@ -47,7 +47,7 @@
         <eco.version>2026.33</eco.version>
         <libreforge.version>2026.33</libreforge.version>
         <royalskyblock.version>2026.32.0</royalskyblock.version>
-        <paper.version>26.2.build.40-alpha</paper.version>
+        <paper.version>26.2.build.121-stable</paper.version>
     </properties>
 
     <repositories>
