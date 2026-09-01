@@ -7,6 +7,7 @@ in `plugins/RoyalSkyblock/extensions/`.
 | --- | --- | --- |
 | `EcoSkills` | EcoSkills | skill levels and stats — island mob tiers, intimidation |
 | `EcoMobs` | EcoMobs | island mobs spawned from EcoMobs configs (`island-mobs.provider: ecomobs`) |
+| `MythicMobs` | MythicMobs | island mobs spawned from MythicMobs configs (`island-mobs.provider: mythicmobs`) |
 | `EcoMinions` | EcoMinions | minion triggers and conditions for perks (`minion_pickup`, `minion_place`, `minion_count_above`, …) |
 
 ---
@@ -43,13 +44,23 @@ reflective glue against plugins that update on their own schedule, so every regi
 a broken adapter logs and registers nothing, and the server still boots. A broken integration should
 cost one jar, not the server.
 
+### Writing a new one
+
+Copy the closest existing module — `mythicmobs` for a mob plugin, `ecoskills` for a skills plugin —
+and change three things: the provider implementation, the `main:` class in `extension.yml`, and the
+jar name in `build.gradle.kts`. Add the module to `settings.gradle.kts`. If the target plugin
+publishes a real Maven artifact, compile against it (`mythicmobs` does); if it only ships a shaded
+jar, go reflective against declared return types (`ecoskills` and `ecomobs` do). That is the whole
+job: implement the SPI, register it in `onEnable`, never throw.
+
 ## Configs
 
 An adapter gets a config file **only when it has a decision of its own to make.**
 
 `EcoSkills` has none, and that is correct rather than missing: it does not define skills — EcoSkills
 does — and *which* skill counts as "combat" is `island-mobs.combat-skill` in RoyalSkyblock's config,
-because that is a fact about island mobs, not about EcoSkills.
+because that is a fact about island mobs, not about EcoSkills. `MythicMobs` also has none: mob ids
+pass straight through to MythicMobs, whose own configs define them.
 
 Where an adapter does need config, it goes in `plugins/RoyalSkyblock/extensions/<Name>/` — never the
 host's folder. `Extension.getDataFolder()` returns the *host's* directory, so an adapter must build

@@ -1,0 +1,4 @@
+main: com.mystipixel.royalskyblock.ext.mythicmobs.MythicMobsExtension
+name: MythicMobs
+version: ${project.version}
+author: Mystipixel

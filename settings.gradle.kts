@@ -12,3 +12,4 @@ rootProject.name = "royalskyblock-extensions"
 include("ecoskills")
 include("ecomobs")
 include("ecominions")
+include("mythicmobs")
