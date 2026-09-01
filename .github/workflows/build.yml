@@ -23,7 +23,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-          cache: maven
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       # RoyalSkyblock is not published to any Maven repository, so the host these adapters
       # compile against has to be built from source. It is a public repo, so the default token
@@ -52,11 +54,13 @@ jobs:
             -Dpackaging=jar
 
       - name: Build
-        run: mvn -B clean package
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build --no-daemon
 
       - name: Upload jar
         uses: actions/upload-artifact@v4
         with:
           name: extensions
-          path: "*/target/*.jar"
+          path: "*/build/libs/*.jar"
           if-no-files-found: error

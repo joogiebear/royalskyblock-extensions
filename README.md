@@ -6,6 +6,8 @@ in `plugins/RoyalSkyblock/extensions/`.
 | Extension | Needs | Gives RoyalSkyblock |
 | --- | --- | --- |
 | `EcoSkills` | EcoSkills | skill levels and stats — island mob tiers, intimidation |
+| `EcoMobs` | EcoMobs | island mobs spawned from EcoMobs configs (`island-mobs.provider: ecomobs`) |
+| `EcoMinions` | EcoMinions | minion triggers and conditions for perks (`minion_pickup`, `minion_place`, `minion_count_above`, …) |
 
 ---
 
@@ -47,8 +49,7 @@ An adapter gets a config file **only when it has a decision of its own to make.*
 
 `EcoSkills` has none, and that is correct rather than missing: it does not define skills — EcoSkills
 does — and *which* skill counts as "combat" is `island-mobs.combat-skill` in RoyalSkyblock's config,
-because that is a fact about island mobs, not about EcoSkills. A future MythicMobs adapter probably
-would need one, since its mob naming will not match the existing id format.
+because that is a fact about island mobs, not about EcoSkills.
 
 Where an adapter does need config, it goes in `plugins/RoyalSkyblock/extensions/<Name>/` — never the
 host's folder. `Extension.getDataFolder()` returns the *host's* directory, so an adapter must build
@@ -65,9 +66,18 @@ without file access — at the cost of a jar being present no longer meaning it 
 
 ```powershell
 .\tools\install-deps.ps1     # once, and after any RoyalSkyblock API change
-mvn clean package            # -> */target/<Name>.jar
+.\gradlew.bat build          # -> */build/libs/<Name>.jar
 ```
 
-Requires JDK 25 to build; the adapters run inside RoyalSkyblock on a 26.2-or-newer server. Neither eco nor RoyalSkyblock is published anywhere the build can reach, so both are
-installed from the jars the server actually runs — compiling against the running jars means an
-extension meets exactly the API it was built for.
+Requires JDK 25 to build; the adapters run inside RoyalSkyblock on a 26.2-or-newer server.
+RoyalSkyblock is not published anywhere the build can reach, so `install-deps.ps1` installs the jar
+the server actually runs into the local Maven repository — compiling against the running jar means an
+extension meets exactly the API it was built for. eco and libreforge, by contrast, come from
+`repo.auxilor.io` as published artifacts; never install those from server jars (their relocated
+Kotlin is unreadable to the Kotlin compiler).
+
+The build is **Gradle, not Maven**, for one load-bearing reason: modules that register libreforge
+elements (`ecominions`) compile Kotlin against libreforge, and only the `libreforge-gradle-plugin` —
+the same toolchain RoyalSkyblock itself builds with — resolves libreforge correctly. The published
+`com.willfp:libreforge` Maven artifact is an empty stub. The git history of `ecominions/BLOCKED.md`
+has the full autopsy.

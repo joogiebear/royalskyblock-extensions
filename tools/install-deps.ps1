@@ -46,4 +46,4 @@ function Install-Jar {
 
 Install-Jar -Jar $SkyblockJar -Group "com.mystipixel" -Artifact "royalskyblock" -Version $SkyblockVersion
 
-Write-Host "Done. Build with: mvn clean package"
+Write-Host "Done. Build with: .\gradlew.bat build"
