@@ -17,7 +17,7 @@
 # lifecycle phase and fails with LifecyclePhaseNotFoundException.
 
 param(
-    [string]$SkyblockJar = "S:\Claude\minecraft\plugins\RoyalSkyblock\build\libs\RoyalSkyblock.jar",
+    [string]$SkyblockJar = "S:\Claude\royal-plugins\RoyalSkyblock\build\libs\RoyalSkyblock.jar",
     [string]$SkyblockVersion = "2026.32.0"
 )
 
