@@ -39,7 +39,11 @@ object ConditionMinionCount : Condition<NoCompileData>("minion_count_above") {
     override val categories = setOf("minions")
 
     override val arguments = arguments {
-        require("count", "You must specify the minion count!")
+        // The four-argument overload, not require(name, message): the two-argument form is a Kotlin
+        // default-argument call that links against a synthetic require$default bridge, and Auxilor
+        // adding a parameter to it (as 2026.35.1 did) makes older jars throw NoSuchMethodError on
+        // class init. This overload has no defaults. Getter and predicate are libreforge's own.
+        require<Any?>("count", "You must specify the minion count!", { key: String -> this.get(key) }, { value: Any? -> value != null })
     }
 
     /** `EcoMinionsApi.getOrNull()`, resolved once at registration. */
