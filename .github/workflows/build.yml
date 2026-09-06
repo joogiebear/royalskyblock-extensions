@@ -25,7 +25,7 @@ jobs:
           java-version: '25'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
 
       # RoyalSkyblock is not published to any Maven repository, so the host these adapters
       # compile against has to be built from source. It is a public repo, so the default token
