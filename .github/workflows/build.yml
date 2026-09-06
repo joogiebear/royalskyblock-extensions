@@ -16,16 +16,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
 
       # RoyalSkyblock is not published to any Maven repository, so the host these adapters
       # compile against has to be built from source. It is a public repo, so the default token
@@ -36,7 +36,7 @@ jobs:
       # shadow the published ones — the local repository wins over remote — and the failure then
       # looks like the published artifact being broken.
       - name: Check out RoyalSkyblock
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: joogiebear/RoyalSkyblock
           path: royalskyblock
@@ -59,7 +59,7 @@ jobs:
           ./gradlew build --no-daemon
 
       - name: Upload jar
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extensions
           path: "*/build/libs/*.jar"
