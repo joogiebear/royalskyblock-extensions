@@ -107,9 +107,11 @@ jobs:
       # host these adapters compile against is built from source and installed locally. It is a
       # public repo, so the default token is enough and no secret is involved.
       #
-      # The version it installs under comes from its own gradle.properties, which must match the
-      # royalskyblock-version pin here — a host release that is not followed by a bump to that pin
-      # fails at this step's resolve rather than producing a jar built against the wrong host.
+      # The version it installs under is the host's own, read from its gradle.properties, and it
+      # is handed to the extensions build as -Proyalskyblock-version below. A release is exactly
+      # when the pin in this repo would otherwise be stale — the host had to move for there to be
+      # anything to release — so the host build is the source of truth rather than a checked-in
+      # value someone has to remember to bump.
       - name: Check out RoyalSkyblock
         if: steps.prep.outputs.release == 'true'
         uses: actions/checkout@v7
@@ -119,22 +121,28 @@ jobs:
 
       - name: Build and install RoyalSkyblock
         if: steps.prep.outputs.release == 'true'
+        id: host
         working-directory: royalskyblock
         run: |
+          set -euo pipefail
           chmod +x ./gradlew
           ./gradlew build --no-daemon
+          HOST_VERSION=$(grep '^version=' gradle.properties | cut -d= -f2)
+          echo "Host version: $HOST_VERSION"
+          echo "version=$HOST_VERSION" >> "$GITHUB_OUTPUT"
           mvn -q -B install:install-file \
             -Dfile=build/libs/RoyalSkyblock.jar \
             -DgroupId=com.mystipixel \
             -DartifactId=royalskyblock \
-            -Dversion="$(grep '^version=' gradle.properties | cut -d= -f2)" \
+            -Dversion="$HOST_VERSION" \
             -Dpackaging=jar
 
       - name: Build
         if: steps.prep.outputs.release == 'true'
         run: |
           chmod +x ./gradlew
-          ./gradlew build -x test --no-daemon
+          ./gradlew build -x test --no-daemon \
+            -Proyalskyblock-version=${{ steps.host.outputs.version }}
 
       # One release, one jar per adapter — they share a version because they share a host, and
       # they are dropped into plugins/RoyalSkyblock/extensions/ together. Named with the version
