@@ -1,3 +1,8 @@
+## 2026.36.1 — 2026-09-06
+
+### 🐛 Fixes
+- derive the RoyalSkyblock version from the host build (`90cf6d3`)
+
 ## 2026.36.0 — 2026-09-06
 
 ### ✨ Features
