@@ -136,29 +136,43 @@ jobs:
           chmod +x ./gradlew
           ./gradlew build -x test --no-daemon
 
-      # One release, four jars — they share a version because they share a host, and they are
-      # dropped into plugins/RoyalSkyblock/extensions/ together. Named with the version so a jar
-      # sitting in an extensions folder can still be traced back to the release it came from.
+      # One release, one jar per adapter — they share a version because they share a host, and
+      # they are dropped into plugins/RoyalSkyblock/extensions/ together. Named with the version
+      # so a jar sitting in an extensions folder can still be traced back to the release it came
+      # from.
+      #
+      # The module list comes from settings.gradle.kts rather than a */build/libs glob. The glob
+      # would be wrong twice over: the RoyalSkyblock checkout above is a sibling directory with
+      # build/libs of its own, so the host's jars end up in the release; and adding a fifth adapter
+      # would silently change what a release contains.
       - name: Collect and name jars
         if: steps.prep.outputs.release == 'true'
         id: jars
         run: |
           set -euo pipefail
+          shopt -s nullglob
+          MODULES=$(sed -n 's/^include("\(.*\)")$/\1/p' settings.gradle.kts)
+          EXPECTED=$(echo "$MODULES" | grep -c .)
+          echo "Modules declared in settings.gradle.kts ($EXPECTED): $(echo $MODULES)"
+
           mkdir -p release
-          for jar in */build/libs/*.jar; do
-            case "$jar" in
-              *-sources.jar|*-javadoc.jar) continue ;;
-            esac
-            base=$(basename "$jar" .jar)
-            cp "$jar" "release/${base}-${{ steps.prep.outputs.version }}.jar"
+          for module in $MODULES; do
+            for jar in "$module"/build/libs/*.jar; do
+              case "$jar" in
+                *-sources.jar|*-javadoc.jar) continue ;;
+              esac
+              base=$(basename "$jar" .jar)
+              cp "$jar" "release/${base}-${{ steps.prep.outputs.version }}.jar"
+            done
           done
-          COUNT=$(ls release/*.jar | wc -l)
+
+          COUNT=$(ls release/*.jar 2>/dev/null | wc -l)
           echo "Collected $COUNT jar(s):"
           ls -1 release/
-          # Every module must ship. A silently-missing adapter is worse than a failed release,
-          # because the extensions folder just quietly lacks one and nothing says why.
-          if [ "$COUNT" -ne 4 ]; then
-            echo "Expected 4 jars (ecoskills, ecomobs, ecominions, mythicmobs), got $COUNT." >&2
+          # Every declared module must ship. A silently-missing adapter is worse than a failed
+          # release, because the extensions folder just quietly lacks one and nothing says why.
+          if [ "$COUNT" -ne "$EXPECTED" ]; then
+            echo "Expected $EXPECTED jar(s), one per module in settings.gradle.kts, got $COUNT." >&2
             exit 1
           fi
 
