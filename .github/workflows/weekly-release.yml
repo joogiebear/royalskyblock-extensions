@@ -1,0 +1,185 @@
+name: Release
+
+# MANUAL ONLY, and deliberately so — unlike the standalone plugins, which release on a Friday
+# schedule. These adapters compile against RoyalSkyblock and are only loadable by the host build
+# they were compiled against, so a release here has to be a decision made after the host moves,
+# not a timer. The gate job and the commented crons are kept so the schedule can be switched on
+# the same way as everywhere else if that ever changes.
+on:
+  # schedule:
+  #   - cron: '0 15 * * 5'   # 10:00 Central during CDT (summer)
+  #   - cron: '0 16 * * 5'   # 10:00 Central during CST (winter)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Release even when there are no new commits since the last tag'
+        type: boolean
+        default: false
+
+concurrency:
+  group: weekly-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual run - proceeding."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOUR=$(TZ=America/Chicago date +%H)
+          if [ "$HOUR" = "10" ]; then
+            echo "It is 10:00 in America/Chicago - proceeding."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Central hour is $HOUR, not 10 - skipping this trigger."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Compute version and changelog
+        id: prep
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "Last tag: ${LAST_TAG:-<none>}"
+          if [ -n "$LAST_TAG" ]; then RANGE="$LAST_TAG..HEAD"; else RANGE="HEAD"; fi
+
+          # New commits since the last release, excluding release chores.
+          NEW=$(git log $RANGE --no-merges --pretty=format:'%s' | grep -v -E '^chore\(release\)' || true)
+          if [ -z "$NEW" ] && [ "${{ github.event.inputs.force }}" != "true" ]; then
+            echo "No new commits since ${LAST_TAG:-start} - nothing to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+          # Calendar version: YEAR.ISOWEEK.PATCH, matching the rest of the suite.
+          YEAR=$(TZ=America/Chicago date +%Y)
+          WEEK=$(( 10#$(TZ=America/Chicago date +%V) ))
+          PATCH=0
+          LATEST_THIS_WEEK=$(git tag -l "${YEAR}.${WEEK}.*" | sort -V | tail -1 || true)
+          if [ -n "$LATEST_THIS_WEEK" ]; then
+            PATCH=$(( ${LATEST_THIS_WEEK##*.} + 1 ))
+          fi
+          VERSION="${YEAR}.${WEEK}.${PATCH}"
+          echo "New version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # Release notes (this version) + prepend to the running CHANGELOG.md
+          python3 .github/release/changelog.py "$VERSION" "$RANGE" > RELEASE_NOTES.md
+          touch CHANGELOG.md
+          cat RELEASE_NOTES.md CHANGELOG.md > CHANGELOG.new && mv CHANGELOG.new CHANGELOG.md
+
+      - name: Set project version
+        if: steps.prep.outputs.release == 'true'
+        run: sed -i 's/^version=.*/version=${{ steps.prep.outputs.version }}/' gradle.properties
+
+      # Same reasoning as build.yml: RoyalSkyblock is not published to any Maven repository, so the
+      # host these adapters compile against is built from source and installed locally. It is a
+      # public repo, so the default token is enough and no secret is involved.
+      #
+      # The version it installs under comes from its own gradle.properties, which must match the
+      # royalskyblock-version pin here — a host release that is not followed by a bump to that pin
+      # fails at this step's resolve rather than producing a jar built against the wrong host.
+      - name: Check out RoyalSkyblock
+        if: steps.prep.outputs.release == 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: joogiebear/RoyalSkyblock
+          path: royalskyblock
+
+      - name: Build and install RoyalSkyblock
+        if: steps.prep.outputs.release == 'true'
+        working-directory: royalskyblock
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build --no-daemon
+          mvn -q -B install:install-file \
+            -Dfile=build/libs/RoyalSkyblock.jar \
+            -DgroupId=com.mystipixel \
+            -DartifactId=royalskyblock \
+            -Dversion="$(grep '^version=' gradle.properties | cut -d= -f2)" \
+            -Dpackaging=jar
+
+      - name: Build
+        if: steps.prep.outputs.release == 'true'
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build -x test --no-daemon
+
+      # One release, four jars — they share a version because they share a host, and they are
+      # dropped into plugins/RoyalSkyblock/extensions/ together. Named with the version so a jar
+      # sitting in an extensions folder can still be traced back to the release it came from.
+      - name: Collect and name jars
+        if: steps.prep.outputs.release == 'true'
+        id: jars
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          for jar in */build/libs/*.jar; do
+            case "$jar" in
+              *-sources.jar|*-javadoc.jar) continue ;;
+            esac
+            base=$(basename "$jar" .jar)
+            cp "$jar" "release/${base}-${{ steps.prep.outputs.version }}.jar"
+          done
+          COUNT=$(ls release/*.jar | wc -l)
+          echo "Collected $COUNT jar(s):"
+          ls -1 release/
+          # Every module must ship. A silently-missing adapter is worse than a failed release,
+          # because the extensions folder just quietly lacks one and nothing says why.
+          if [ "$COUNT" -ne 4 ]; then
+            echo "Expected 4 jars (ecoskills, ecomobs, ecominions, mythicmobs), got $COUNT." >&2
+            exit 1
+          fi
+
+      - name: Commit bump + changelog, tag
+        if: steps.prep.outputs.release == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "joogiebear"
+          git config user.email "joogiebear@protonmail.com"
+          git add gradle.properties CHANGELOG.md
+          git commit -m "chore(release): ${{ steps.prep.outputs.version }}"
+          git tag "${{ steps.prep.outputs.version }}"
+          git push origin HEAD:${{ github.ref_name }}
+          git push origin "${{ steps.prep.outputs.version }}"
+
+      - name: GitHub Release
+        if: steps.prep.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.prep.outputs.version }}" \
+            release/*.jar \
+            --title "${{ steps.prep.outputs.version }}" \
+            --notes-file RELEASE_NOTES.md
