@@ -84,7 +84,7 @@ jobs:
       # anything to release — so the host build is the source of truth rather than a checked-in
       # value someone has to remember to bump.
       # Release consumers against a published host tag, never a moving default-branch checkout.
-      # The 11 a.m. slot follows the host's 10 a.m. slot. A failed/new host build cannot silently
+      # Release the host first so this resolves its new tag. A failed/new host build cannot silently
       # become an extension's runtime dependency; compilation against the pinned release must pass.
       - name: Resolve published RoyalSkyblock release
         if: steps.prep.outputs.release == 'true'
