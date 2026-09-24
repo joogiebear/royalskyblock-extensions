@@ -1,3 +1,13 @@
+## 2026.39.1 — 2026-09-24
+
+### 🐛 Fixes
+- resolve EcoSkills classes from its own classloader (`d017859`)
+- all-or-nothing trigger binding, expression count (`70c5297`)
+- safe health scaling, reloadable config, spawn-reason filter (`fc42243`)
+
+### 📝 Documentation
+- add MIT license (`5715c56`)
+
 ## 2026.39.0 — 2026-09-23
 
 ### 📝 Documentation
