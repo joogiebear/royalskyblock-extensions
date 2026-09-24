@@ -80,6 +80,13 @@ without file access — at the cost of a jar being present no longer meaning it 
 .\gradlew.bat build          # -> */build/libs/<Name>.jar
 ```
 
+`install-deps.ps1` expects a RoyalSkyblock checkout next to this one (`../RoyalSkyblock`), built;
+pass `-SkyblockJar <path>` if yours is elsewhere. On Linux or macOS, build with `./gradlew build`.
+
+CI builds every PR twice: against RoyalSkyblock's latest release, which is what a release compiles
+against and is the check that must pass, and against RoyalSkyblock's `main`, as a non-blocking
+early warning that the host is about to break an adapter.
+
 Requires JDK 25 to build; the adapters run inside RoyalSkyblock on a 26.2-or-newer server.
 RoyalSkyblock is not published anywhere the build can reach, so `install-deps.ps1` installs the jar
 the server actually runs into the local Maven repository — compiling against the running jar means an
