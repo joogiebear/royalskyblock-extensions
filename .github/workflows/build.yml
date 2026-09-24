@@ -13,7 +13,18 @@ on:
 
 jobs:
   build:
+    # Two hosts, because a release compiles against the host's latest RELEASE while day-to-day work
+    # tracks the host's main. Building only against main let a PR go green on host API that no
+    # release had yet, and the release then failed.
+    #   release — what the next extensions release will compile against. This one gates.
+    #   main    — early warning that the host is about to break an adapter. Reported, never blocks.
+    name: Build (host ${{ matrix.host }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.host == 'main' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [ release, main ]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -35,10 +46,27 @@ jobs:
       # repo.papermc.io as published artifacts. Installing the shipped, shaded jars instead would
       # shadow the published ones — the local repository wins over remote — and the failure then
       # looks like the published artifact being broken.
+      # Same resolution as the release workflow, so "green here" means "the release will build".
+      - name: Resolve RoyalSkyblock ref
+        id: host_ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.host }}" = "main" ]; then
+            echo "ref=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOST_TAG=$(gh release view --repo joogiebear/RoyalSkyblock --json tagName --jq .tagName)
+          [[ "$HOST_TAG" =~ ^[0-9]{4}\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid host release tag'; exit 1; }
+          echo "Host release: $HOST_TAG"
+          echo "ref=refs/tags/$HOST_TAG" >> "$GITHUB_OUTPUT"
+
       - name: Check out RoyalSkyblock
         uses: actions/checkout@v7
         with:
           repository: joogiebear/RoyalSkyblock
+          ref: ${{ steps.host_ref.outputs.ref }}
           path: royalskyblock
 
       # The version installed here is the host's own, read from its gradle.properties, and it is
@@ -65,11 +93,11 @@ jobs:
 
       - name: Build
         run: |
-          chmod +x ./gradlew
           ./gradlew build --no-daemon \
             -Proyalskyblock-version=${{ steps.host.outputs.version }}
 
       - name: Upload jar
+        if: matrix.host == 'release'
         uses: actions/upload-artifact@v7
         with:
           name: extensions
