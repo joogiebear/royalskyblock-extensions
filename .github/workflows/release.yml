@@ -69,6 +69,10 @@ jobs:
           # Release notes (this version) + prepend to the running CHANGELOG.md
           python3 .github/release/changelog.py "$VERSION" "$RANGE" > RELEASE_NOTES.md
           touch CHANGELOG.md
+          # A run that pushed its release commit but then failed to publish left this version's
+          # section behind, untagged, so this run reuses the version. Drop that section rather than
+          # add the version to the changelog twice.
+          awk -v heading="## $VERSION " 'index($0, heading) == 1 { skip = 1; next } /^## / { skip = 0 } !skip'             CHANGELOG.md > CHANGELOG.old && mv CHANGELOG.old CHANGELOG.md
           cat RELEASE_NOTES.md CHANGELOG.md > CHANGELOG.new && mv CHANGELOG.new CHANGELOG.md
 
       - name: Set project version
