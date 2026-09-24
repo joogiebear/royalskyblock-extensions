@@ -9,6 +9,7 @@ import org.bukkit.event.Event
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.plugin.Plugin
+import java.lang.reflect.Method
 
 /**
  * Exposes EcoMinions activity to libreforge as triggers.
@@ -57,76 +58,102 @@ object MinionTriggers {
      * The triggers are only registered when they can actually fire. Registering them unconditionally
      * would let a config reference `minion_pickup` on a server with no minion plugin and simply do
      * nothing, which is harder to diagnose than libreforge reporting an unknown trigger id.
+     *
+     * All four events are resolved before anything is registered, so a renamed event leaves every
+     * trigger unregistered rather than some live and some missing while the log says "off".
      */
     fun register(owner: Plugin): Boolean {
         val ecoMinions = Bukkit.getPluginManager().getPlugin("EcoMinions") ?: return false
         val loader = ecoMinions.javaClass.classLoader
-        return try {
+        val bindings = try {
             // Presence of the API type is the compatibility check — if EcoMinions ever drops it, bail
             // rather than binding to events whose shape we then cannot read.
             Class.forName(API_CLASS, false, loader)
 
-            bind(owner, loader, "MinionPickupEvent", PICKUP, MinionValue.LEVEL)
-            bind(owner, loader, "MinionPlaceEvent", PLACE, MinionValue.LEVEL)
-            bind(owner, loader, "MinionUpgradeEvent", UPGRADE, MinionValue.TIER)
-            bind(owner, loader, "MinionFuelEvent", FUEL, MinionValue.LEVEL)
-            true
+            listOf(
+                resolve(loader, "MinionPickupEvent", PICKUP, MinionValue.LEVEL),
+                resolve(loader, "MinionPlaceEvent", PLACE, MinionValue.LEVEL),
+                resolve(loader, "MinionUpgradeEvent", UPGRADE, MinionValue.TIER),
+                resolve(loader, "MinionFuelEvent", FUEL, MinionValue.LEVEL)
+            )
         } catch (notEcoMinions: Throwable) {
-            false
+            return false
         }
+        bindings.forEach { it.bind(owner) }
+        return true
     }
 
     /** Which number a given event should put in the trigger's `value`. */
     private enum class MinionValue { LEVEL, TIER }
 
-    private fun bind(
-        owner: Plugin,
+    /** One EcoMinions event, fully resolved, ready to bind to its trigger. */
+    private class Binding(
+        val eventClass: Class<out Event>,
+        val trigger: RoyalTrigger,
+        val getMinion: Method,
+        val getPlayer: Method,
+        val getLocation: Method,
+        val getLevel: Method,
+        val getType: Method,
+        val getTypeId: Method,
+        val getTier: Method?
+    ) {
+        fun bind(owner: Plugin) {
+            Triggers.register(trigger)
+
+            Bukkit.getPluginManager().registerEvent(
+                eventClass,
+                EmptyListener,
+                EventPriority.MONITOR, // observing only: never alter what EcoMinions is doing
+                { _, event -> if (eventClass.isInstance(event)) dispatch(event) },
+                owner
+            )
+        }
+
+        private fun dispatch(event: Event) {
+            try {
+                val minion = getMinion.invoke(event)
+                val player = getPlayer.invoke(event) as? Player
+                if (minion != null && player != null) {
+                    trigger.fire(
+                        player,
+                        getLocation.invoke(minion) as? Location,
+                        getTypeId.invoke(getType.invoke(minion)) as? String,
+                        ((getTier?.invoke(event) ?: getLevel.invoke(minion)) as? Int)?.toDouble() ?: 0.0
+                    )
+                }
+            } catch (failed: Throwable) {
+                // EcoMinions changed shape underneath us — drop this dispatch rather than throwing
+                // inside another plugin's event.
+            }
+        }
+    }
+
+    private fun resolve(
         loader: ClassLoader,
         simpleName: String,
         trigger: RoyalTrigger,
         value: MinionValue
-    ) {
+    ): Binding {
         @Suppress("UNCHECKED_CAST")
         val eventClass = Class.forName(EVENT_PACKAGE + simpleName, false, loader) as Class<out Event>
 
-        val getMinion = eventClass.getMethod("getMinion")
-        val getPlayer = eventClass.getMethod("getPlayer")
         // Resolve the minion accessors off the DECLARED return type — the public Minion interface —
         // rather than the runtime object's class, which may be a non-public implementation that would
         // reject the call.
+        val getMinion = eventClass.getMethod("getMinion")
         val minionType = getMinion.returnType
-        val getLocation = minionType.getMethod("getLocation")
-        val getLevel = minionType.getMethod("getLevel")
-        val getTypeId = minionType.getMethod("getType").returnType.getMethod("getId")
         val getType = minionType.getMethod("getType")
-        val getTier = if (value == MinionValue.TIER) eventClass.getMethod("getTier") else null
-
-        Triggers.register(trigger)
-
-        Bukkit.getPluginManager().registerEvent(
-            eventClass,
-            EmptyListener,
-            EventPriority.MONITOR, // observing only: never alter what EcoMinions is doing
-            { _, event ->
-                if (eventClass.isInstance(event)) {
-                    try {
-                        val minion = getMinion.invoke(event)
-                        val player = getPlayer.invoke(event) as? Player
-                        if (minion != null && player != null) {
-                            trigger.fire(
-                                player,
-                                getLocation.invoke(minion) as? Location,
-                                getTypeId.invoke(getType.invoke(minion)) as? String,
-                                ((getTier?.invoke(event) ?: getLevel.invoke(minion)) as? Int)?.toDouble() ?: 0.0
-                            )
-                        }
-                    } catch (failed: Throwable) {
-                        // EcoMinions changed shape underneath us — drop this dispatch rather than
-                        // throwing inside another plugin's event.
-                    }
-                }
-            },
-            owner
+        return Binding(
+            eventClass = eventClass,
+            trigger = trigger,
+            getMinion = getMinion,
+            getPlayer = eventClass.getMethod("getPlayer"),
+            getLocation = minionType.getMethod("getLocation"),
+            getLevel = minionType.getMethod("getLevel"),
+            getType = getType,
+            getTypeId = getType.returnType.getMethod("getId"),
+            getTier = if (value == MinionValue.TIER) eventClass.getMethod("getTier") else null
         )
     }
 

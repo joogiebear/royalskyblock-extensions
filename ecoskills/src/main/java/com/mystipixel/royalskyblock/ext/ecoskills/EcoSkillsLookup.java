@@ -1,7 +1,9 @@
 package com.mystipixel.royalskyblock.ext.ecoskills;
 
 import com.mystipixel.royalskyblock.hooks.CombatLevelSource;
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Method;
 
@@ -11,6 +13,10 @@ import java.lang.reflect.Method;
  * <p>Reflective rather than compiled: EcoSkills' POM pulls unresolvable NMS submodules, so there is
  * nothing to compile against. It is also what keeps the hook soft — this class loads fine on a server
  * with no EcoSkills, reports itself unusable, and nothing else has to care.
+ *
+ * <p>Classes come from EcoSkills' own classloader. This jar's loader delegates to the host's, which
+ * only sees EcoSkills if the host happens to declare it — asking EcoSkills directly never depends on
+ * that.
  *
  * <p>Skills and stats are the same lookup three names apart — a registry singleton with
  * {@code getByID}, an element type, and an API method taking {@code (OfflinePlayer, element)}. They
@@ -52,11 +58,16 @@ final class EcoSkillsLookup implements CombatLevelSource {
 
         boolean ok;
         try {
-            Class<?> registryType = Class.forName(registryClass);
+            Plugin ecoSkills = Bukkit.getPluginManager().getPlugin("EcoSkills");
+            if (ecoSkills == null) {
+                throw new ClassNotFoundException("EcoSkills is not installed");
+            }
+            ClassLoader loader = ecoSkills.getClass().getClassLoader();
+            Class<?> registryType = Class.forName(registryClass, true, loader);
             this.registry = registryType.getField("INSTANCE").get(null);
             this.getByID = registryType.getMethod("getByID", String.class);
-            this.levelMethod = Class.forName("com.willfp.ecoskills.api.EcoSkillsAPI")
-                    .getMethod(apiMethod, OfflinePlayer.class, Class.forName(elementClass));
+            this.levelMethod = Class.forName("com.willfp.ecoskills.api.EcoSkillsAPI", true, loader)
+                    .getMethod(apiMethod, OfflinePlayer.class, Class.forName(elementClass, true, loader));
             ok = true;
         } catch (Throwable notPresent) {
             ok = false;

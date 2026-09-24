@@ -28,6 +28,9 @@ import java.lang.reflect.Method
  *       count: 10
  * ```
  *
+ * `count` is a libreforge expression like any other numeric argument, so placeholders and maths work
+ * (`count: "%royalskyblock_island_level% / 10"`).
+ *
  * Resolved reflectively for the same reason as the triggers — EcoMinions is not a compile dependency.
  * If EcoMinions is missing or reshaped the condition is never registered, so a config referencing it
  * gets a clear unknown-id violation instead of silently passing or failing.
@@ -89,7 +92,7 @@ object ConditionMinionCount : Condition<NoCompileData>("minion_count_above") {
     ): Boolean {
         val player = dispatcher.get<Player>() ?: return false
         val owned = countFor(player) ?: return false
-        return owned > config.getInt("count")
+        return owned > config.getIntFromExpression("count", player)
     }
 
     /** The player's minion count, or null if EcoMinions cannot answer right now. */

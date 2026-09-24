@@ -1,4 +1,4 @@
-name: Manual Release
+name: Release
 
 # Releases only when started manually from GitHub Actions. Version format: YEAR.ISOWEEK.PATCH.
 on:
@@ -10,7 +10,7 @@ on:
         default: false
 
 concurrency:
-  group: weekly-release-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -126,7 +126,6 @@ jobs:
       - name: Build
         if: steps.prep.outputs.release == 'true'
         run: |
-          chmod +x ./gradlew
           ./gradlew build --no-daemon \
             -Proyalskyblock-version=${{ steps.host.outputs.version }}
 
@@ -170,18 +169,24 @@ jobs:
             exit 1
           fi
 
-      - name: Commit bump + changelog, tag
+      # The release commit also moves the royalskyblock-version pin to the host it was built
+      # against, so a local build after pulling compiles against what the release did.
+      - name: Commit bump + changelog
         if: steps.prep.outputs.release == 'true'
+        id: commit
         run: |
           set -euo pipefail
+          sed -i 's/^royalskyblock-version=.*/royalskyblock-version=${{ steps.host.outputs.version }}/' gradle.properties
           git config user.name "joogiebear"
           git config user.email "joogiebear@protonmail.com"
           git add gradle.properties CHANGELOG.md
           git commit -m "chore(release): ${{ steps.prep.outputs.version }}"
-          git tag "${{ steps.prep.outputs.version }}"
           git push origin HEAD:${{ github.ref_name }}
-          git push origin "${{ steps.prep.outputs.version }}"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      # The tag is created BY the release (--target), not pushed ahead of it. Pushing it first left
+      # a tag with no release whenever this step failed, and the next run then skipped to the next
+      # patch number, leaving a hole in the version history.
       - name: GitHub Release
         if: steps.prep.outputs.release == 'true'
         env:
@@ -189,5 +194,6 @@ jobs:
         run: |
           gh release create "${{ steps.prep.outputs.version }}" \
             release/*.jar \
+            --target "${{ steps.commit.outputs.sha }}" \
             --title "${{ steps.prep.outputs.version }}" \
             --notes-file RELEASE_NOTES.md

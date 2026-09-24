@@ -14,7 +14,9 @@ plugins {
 }
 
 dependencies {
-    compileOnly("org.jetbrains.kotlin:kotlin-stdlib:2.3.0")
+    // No version: the Kotlin plugin aligns kotlin(...) dependencies with its own version, so the
+    // stdlib can never drift from the compiler pinned in the root build.
+    compileOnly(kotlin("stdlib"))
 }
 
 kotlin {

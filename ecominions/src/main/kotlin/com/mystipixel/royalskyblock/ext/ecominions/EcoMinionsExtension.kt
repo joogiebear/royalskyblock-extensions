@@ -38,23 +38,28 @@ class EcoMinionsExtension(plugin: EcoPlugin) : Extension(plugin) {
             return
         }
 
-        // Wrapped: an extension that throws in onEnable disables its host, and every call below is
-        // reflective against a plugin that updates on its own schedule.
+        // Each wrapped: an extension that throws in onEnable disables its host, and every call below
+        // is reflective against a plugin that updates on its own schedule.
         try {
-            val triggers = MinionTriggers.register(plugin)
-            val condition = ConditionMinionCount.register()
-            if (triggers && condition) {
-                logger.info(
-                    "Registered minion triggers (minion_pickup, minion_place, minion_upgrade, "
-                        + "minion_fuel) and the minion_count_above condition."
-                )
+            // Reported separately: each is registered on its own, so one failing must not make the
+            // log claim the other is off too.
+            if (MinionTriggers.register(plugin)) {
+                logger.info("Registered minion triggers (minion_pickup, minion_place, minion_upgrade, minion_fuel).")
             } else {
-                logger.warning(
-                    "EcoMinions is installed but its API could not be read — minion elements are off."
-                )
+                logger.warning("EcoMinions is installed but its events could not be read — minion triggers are off.")
             }
         } catch (failed: Throwable) {
-            logger.severe("Could not register minion elements: $failed")
+            logger.severe("Could not register minion triggers: $failed")
+        }
+
+        try {
+            if (ConditionMinionCount.register()) {
+                logger.info("Registered the minion_count_above condition.")
+            } else {
+                logger.warning("EcoMinions is installed but its API could not be read — minion_count_above is off.")
+            }
+        } catch (failed: Throwable) {
+            logger.severe("Could not register minion_count_above: $failed")
         }
     }
 

@@ -22,12 +22,16 @@
 # unresolved com.mystipixel:royalskyblock that named the old version and explained nothing.
 #
 # Pass -SkyblockVersion only to install under something other than what the host tree says.
+#
+# -SkyblockJar defaults to a RoyalSkyblock checkout sitting next to this one
+# (<parent>/RoyalSkyblock beside <parent>/royalskyblock-extensions). Pass it if yours lives elsewhere.
 param(
-    [string]$SkyblockJar = "S:\Claude\royal-plugins\RoyalSkyblock\build\libs\RoyalSkyblock.jar",
+    [string]$SkyblockJar = (Join-Path $PSScriptRoot "..\..\RoyalSkyblock\build\libs\RoyalSkyblock.jar"),
     [string]$SkyblockVersion
 )
 
 $ErrorActionPreference = "Stop"
+$SkyblockJar = [System.IO.Path]::GetFullPath($SkyblockJar)
 
 # The version comes from the host's gradle.properties - the same file the CI workflows read, and
 # the same value the host's own release job stamps into the build.

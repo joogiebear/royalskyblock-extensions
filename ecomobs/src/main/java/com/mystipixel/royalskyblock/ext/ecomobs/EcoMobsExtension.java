@@ -32,12 +32,17 @@ import java.util.jar.JarFile;
  * reads {@code islands()} when a mob spawns — so it belongs on the far side of the host's enable, with
  * everything else that touches host services.
  *
+ * <p>The config is re-read on every host reload, and the bridge reads it on every spawn, so changing
+ * {@code strength.*} — including turning it on or off — needs a RoyalSkyblock reload, not a
+ * restart.
+ *
  * <p>Both are wrapped. An extension that throws in {@code onEnable} takes its host down, and this is
  * reflective glue against a plugin that updates on its own schedule.
  */
 public final class EcoMobsExtension extends Extension {
 
-    private FileConfiguration config;
+    /** Null until enabled, when disabled, or when listed in extensions.disabled. */
+    private volatile FileConfiguration config;
 
     public EcoMobsExtension(EcoPlugin plugin) {
         super(plugin);
@@ -79,12 +84,13 @@ public final class EcoMobsExtension extends Extension {
         if (config == null) {
             return;                              // disabled, or enable bailed out
         }
-        if (!config.getBoolean("strength.enabled", true)) {
-            return;
-        }
+        // Registered even with strength.enabled false: the bridge checks it per spawn, so a reload
+        // can switch scaling on without a restart.
         try {
             if (StrengthBridge.register(this, getPlugin())) {
-                getLogger().info("Island-level mob strength scaling active.");
+                getLogger().info(config.getBoolean("strength.enabled", true)
+                        ? "Island-level mob strength scaling active."
+                        : "Island-level mob strength scaling ready, but strength.enabled is false.");
             } else if (Bukkit.getPluginManager().getPlugin("EcoMobs") != null) {
                 getLogger().warning("EcoMobs is installed but its spawn event could not be resolved — "
                         + "mob strength scaling is off.");
@@ -92,6 +98,15 @@ public final class EcoMobsExtension extends Extension {
         } catch (Throwable failed) {
             getLogger().severe("Mob strength scaling could not start: " + failed);
         }
+    }
+
+    /** eco calls this on every host reload (and twice during startup); re-read our own file. */
+    @Override
+    protected void onReload() {
+        if (config == null) {
+            return;                              // disabled — stay disabled until a restart
+        }
+        this.config = loadConfig();
     }
 
     @Override

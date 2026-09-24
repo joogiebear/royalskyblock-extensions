@@ -52,7 +52,13 @@ subprojects {
     }
 
     // extension.yml carries ${project.version}; nothing else is templated.
+    //
+    // The version is declared as an input because Gradle does not track what expand() is given:
+    // without it, an incremental build after a version bump holds processResources up-to-date and
+    // ships the previous version in extension.yml — the same trap install-deps.ps1 documents for
+    // the host.
     tasks.withType<ProcessResources>().configureEach {
+        inputs.property("version", project.version.toString())
         filesMatching("extension.yml") {
             expand("project" to mapOf("version" to project.version))
         }

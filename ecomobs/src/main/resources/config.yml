@@ -22,3 +22,18 @@ strength:
   health-scale-per-level: 0.002
   damage-scale-per-level: 0.0015
   max-multiplier: 5.0
+
+  # Which EcoMobs spawns are scaled, by EcoMobs spawn reason:
+  #   COMMAND  - RoyalSkyblock's island mobs (and /ecomobs spawn)
+  #   NATURAL  - EcoMobs' own natural spawning
+  #   TOTEM    - totem summons
+  #   SPAWNER  - EcoMobs spawners
+  #   EGG      - spawn eggs
+  # SPAWNER and EGG are left out by default: they are what players farm with, and a spawner farm on
+  # a high-level island would otherwise pour out mobs at the full cap.
+  spawn-reasons:
+    - COMMAND
+    - NATURAL
+    - TOTEM
+
+# Changes here apply on a RoyalSkyblock reload; no restart needed.
