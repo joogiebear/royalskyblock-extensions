@@ -11,13 +11,9 @@ import org.bukkit.entity.Entity;
 /**
  * Spawns MythicMobs mobs on behalf of RoyalSkyblock.
  *
- * <p>Compiled against MythicMobs' published API rather than reflective — unlike the eco plugins,
- * MythicMobs ships a real artifact, so this adapter gets actual types. The JVM only links them when
- * {@link #spawn} first runs, and {@link #available} touches none, so the provider registers safely
- * on a server without MythicMobs and simply reports itself unavailable.
- *
- * <p>Spawned at level 1: island difficulty scaling belongs to whatever the server configures
- * (RoyalSkyblock's own island-level hooks, or MythicMobs' level modifiers), not to the glue.
+ * <p>Compiled against MythicMobs' API. The types only link when {@link #spawn} first runs and
+ * {@link #available} touches none, so this loads safely without MythicMobs. Spawns at level 1;
+ * difficulty scaling is the server's config, not this adapter's.
  */
 public final class MythicMobsProvider implements IslandMobProvider {
 
@@ -38,7 +34,7 @@ public final class MythicMobsProvider implements IslandMobProvider {
         try {
             var mob = MythicBukkit.inst().getMobManager().getMythicMob(mobId);
             if (mob.isEmpty()) {
-                return null;                     // no such mob configured in MythicMobs
+                return null;
             }
             ActiveMob active = mob.get().spawn(BukkitAdapter.adapt(location), 1);
             if (active == null) {
@@ -46,8 +42,8 @@ public final class MythicMobsProvider implements IslandMobProvider {
             }
             return BukkitAdapter.adapt(active.getEntity());
         } catch (Throwable notMythic) {
-            // Absent plugin (NoClassDefFoundError) or a reshaped API — degrade to "spawn failed"
-            // rather than throwing inside the island spawn service.
+            // absent plugin (NoClassDefFoundError) or a reshaped API: fail the spawn rather than throw
+            // inside the island spawn service
             return null;
         }
     }

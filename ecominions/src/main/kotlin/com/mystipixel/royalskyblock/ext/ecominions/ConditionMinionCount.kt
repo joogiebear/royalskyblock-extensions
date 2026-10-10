@@ -14,12 +14,7 @@ import org.bukkit.entity.Player
 import java.lang.reflect.Method
 
 /**
- * `minion_count_above` — passes when the player owns more than the configured number of minions.
- *
- * The counterpart to [MinionTriggers]: those let content react to a minion *doing* something, this
- * lets content react to how many you *run*. Being a libreforge condition it works anywhere conditions
- * do, so an island perk can scale with minion count, an EcoItem can require a minion empire, a quest
- * can gate on one.
+ * `minion_count_above`: passes when the player owns more than `count` minions.
  *
  * ```yaml
  * conditions:
@@ -28,12 +23,8 @@ import java.lang.reflect.Method
  *       count: 10
  * ```
  *
- * `count` is a libreforge expression like any other numeric argument, so placeholders and maths work
+ * `count` is a libreforge expression, so placeholders and maths work
  * (`count: "%royalskyblock_island_level% / 10"`).
- *
- * Resolved reflectively for the same reason as the triggers — EcoMinions is not a compile dependency.
- * If EcoMinions is missing or reshaped the condition is never registered, so a config referencing it
- * gets a clear unknown-id violation instead of silently passing or failing.
  */
 object ConditionMinionCount : Condition<NoCompileData>("minion_count_above") {
 
@@ -42,26 +33,19 @@ object ConditionMinionCount : Condition<NoCompileData>("minion_count_above") {
     override val categories = setOf("minions")
 
     override val arguments = arguments {
-        // The four-argument overload, not require(name, message): the two-argument form is a Kotlin
-        // default-argument call that links against a synthetic require$default bridge, and Auxilor
-        // adding a parameter to it (as 2026.35.1 did) makes older jars throw NoSuchMethodError on
-        // class init. This overload has no defaults. Getter and predicate are libreforge's own.
+        // Four-argument overload on purpose: the two-argument form links against a synthetic
+        // require$default bridge, which throws NoSuchMethodError when libreforge changes its parameters.
         require<Any?>("count", "You must specify the minion count!", { key: String -> this.get(key) }, { value: Any? -> value != null })
     }
 
-    /** `EcoMinionsApi.getOrNull()`, resolved once at registration. */
+    // resolved once in register()
     private var apiGetOrNull: Method? = null
 
-    /** `EcoMinionsApi.minions()`. */
     private var minions: Method? = null
 
-    /** `MinionsManager.countOwnedBy(OfflinePlayer)`. */
     private var countOwnedBy: Method? = null
 
-    /**
-     * Bind to EcoMinions and register. Returns false when EcoMinions is absent or its API is not
-     * shaped as expected.
-     */
+    /** Binds to EcoMinions and registers; false when EcoMinions is absent or reshaped. */
     fun register(): Boolean {
         val ecoMinions = Bukkit.getPluginManager().getPlugin("EcoMinions") ?: return false
         return try {
@@ -95,7 +79,7 @@ object ConditionMinionCount : Condition<NoCompileData>("minion_count_above") {
         return owned > config.getIntFromExpression("count", player)
     }
 
-    /** The player's minion count, or null if EcoMinions cannot answer right now. */
+    // null if EcoMinions can't answer right now
     private fun countFor(player: Player): Int? = try {
         val api = apiGetOrNull?.invoke(null)
         if (api == null) {
@@ -104,6 +88,6 @@ object ConditionMinionCount : Condition<NoCompileData>("minion_count_above") {
             countOwnedBy?.invoke(minions?.invoke(api), player) as? Int
         }
     } catch (failed: Throwable) {
-        null // EcoMinions changed shape — fail the condition rather than the whole chain
+        null // EcoMinions changed shape: fail the condition rather than the whole chain
     }
 }

@@ -6,23 +6,11 @@ import com.willfp.eco.core.extensions.Extension;
 import org.bukkit.Bukkit;
 
 /**
- * Teaches RoyalSkyblock to read EcoSkills.
+ * Lets RoyalSkyblock read EcoSkills skills and stats.
  *
- * <p>Install EcoSkills and this jar and island mobs scale to a player's combat skill and respect the
- * intimidation stat. Install EcoSkills without this and RoyalSkyblock does not know it exists — that
- * is the point of the split, not an oversight. The core carries no EcoSkills code and no check for
- * the plugin's name.
- *
- * <h2>Registration happens in onEnable, and must not throw</h2>
- *
- * <p>eco enables extensions <b>before</b> the host's own enable, which is what makes registering here
- * work: the backend is in the registry by the time RoyalSkyblock starts island mob spawning. It also
- * means the host's services do not exist yet, so nothing here may touch them.
- *
- * <p>And an extension that throws in {@code onEnable} takes its host down with it. This is reflective
- * glue against a plugin that updates on its own schedule, so the whole registration is wrapped: if
- * EcoSkills changes underneath it, this logs and registers nothing, and the skyblock server still
- * boots. A broken integration should cost one jar, not the server.
+ * <p>Registers in {@code onEnable}, which eco runs before the host's enable, so the backend is in place
+ * before island mob spawning starts. Host services don't exist yet, so nothing here may touch them.
+ * Wrapped because an extension that throws in {@code onEnable} takes its host down.
  */
 public final class EcoSkillsExtension extends Extension {
 
@@ -35,7 +23,7 @@ public final class EcoSkillsExtension extends Extension {
         RoyalSkyblockPlugin host = RoyalSkyblockPlugin.Companion.get();
 
         if (!host.extensionEnabled(getName())) {
-            getLogger().info(getName() + " is listed in extensions.disabled — not registering.");
+            getLogger().info(getName() + " is listed in extensions.disabled, not registering.");
             return;
         }
 
@@ -47,18 +35,16 @@ public final class EcoSkillsExtension extends Extension {
         }
 
         if (Bukkit.getPluginManager().getPlugin("EcoSkills") == null) {
-            // Registered anyway: the backend reports itself unavailable and nothing selects it. Said
-            // out loud because "I installed the extension and nothing happened" is otherwise silent.
-            getLogger().warning("Registered, but EcoSkills is not installed — this extension does nothing "
+            // registered anyway: the backend reports itself unavailable and nothing selects it
+            getLogger().warning("Registered, but EcoSkills is not installed: this extension does nothing "
                     + "until it is.");
             return;
         }
-        getLogger().info("EcoSkills backend registered — skills and stats are readable.");
+        getLogger().info("EcoSkills backend registered: skills and stats are readable.");
     }
 
     @Override
     protected void onDisable() {
-        // Nothing to undo. The registry lives and dies with the host, and a backend left in it while
-        // the host is shutting down is never read again.
+        // nothing to undo: the registry lives and dies with the host
     }
 }
