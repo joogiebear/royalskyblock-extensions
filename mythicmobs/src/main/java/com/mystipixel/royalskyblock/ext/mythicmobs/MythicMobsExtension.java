@@ -6,18 +6,11 @@ import com.willfp.eco.core.extensions.Extension;
 import org.bukkit.Bukkit;
 
 /**
- * Teaches RoyalSkyblock to spawn MythicMobs mobs.
+ * Lets RoyalSkyblock spawn MythicMobs mobs ({@code island-mobs.provider: mythicmobs}).
  *
- * <p>Install MythicMobs and this jar, set {@code island-mobs.provider: mythicmobs}, and island mobs
- * come from MythicMobs. Install neither and RoyalSkyblock does not know MythicMobs exists — the core
- * carries no MythicMobs code and no check for the plugin's name. This is the adapter pattern's whole
- * point: one registry slot, one jar per mob plugin, the config picks.
- *
- * <p>The provider is registered in {@code onEnable}, because that is what makes it visible: eco
- * enables extensions before the host's own enable, so the provider is in the registry by the time
- * RoyalSkyblock starts island mob spawning and looks for it. Registered even when MythicMobs is
- * absent — the backend reports itself unavailable and nothing selects it — because "I installed the
- * extension and nothing happened" should never be silent.
+ * <p>The provider registers in {@code onEnable} because eco enables extensions before the host's
+ * enable, so it is in the registry before island mob spawning looks for it. It registers even without
+ * MythicMobs installed and reports itself unavailable.
  */
 public final class MythicMobsExtension extends Extension {
 
@@ -30,7 +23,7 @@ public final class MythicMobsExtension extends Extension {
         RoyalSkyblockPlugin host = RoyalSkyblockPlugin.Companion.get();
 
         if (!host.extensionEnabled(getName())) {
-            getLogger().info(getName() + " is listed in extensions.disabled — not registering.");
+            getLogger().info(getName() + " is listed in extensions.disabled, not registering.");
             return;
         }
 
@@ -44,11 +37,11 @@ public final class MythicMobsExtension extends Extension {
         }
 
         if (Bukkit.getPluginManager().getPlugin("MythicMobs") == null) {
-            getLogger().warning("Registered, but MythicMobs is not installed — this extension does "
+            getLogger().warning("Registered, but MythicMobs is not installed: this extension does "
                     + "nothing until it is.");
             return;
         }
-        getLogger().info("MythicMobs backend registered — set island-mobs.provider to 'mythicmobs' to use it.");
+        getLogger().info("MythicMobs backend registered. Set island-mobs.provider to 'mythicmobs' to use it.");
     }
 
     @Override

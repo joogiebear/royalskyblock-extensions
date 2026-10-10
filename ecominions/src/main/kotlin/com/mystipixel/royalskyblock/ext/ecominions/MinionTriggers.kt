@@ -12,27 +12,11 @@ import org.bukkit.plugin.Plugin
 import java.lang.reflect.Method
 
 /**
- * Exposes EcoMinions activity to libreforge as triggers.
+ * Exposes EcoMinions activity to libreforge as triggers, usable from any eco plugin's config.
  *
- * EcoMinions fires perfectly good Bukkit events but registers no libreforge elements of its own, so
- * nothing in any eco config can react to a minion doing anything. Registering the triggers closes
- * that: libreforge elements registered by *any* plugin work in *all* of them, so this one file makes
- * EcoItems, EcoQuests, Talismans, Boosters and RoyalSkyblock's own perks and upgrades minion-aware at
- * once — a talisman that pays out when a minion harvests, a quest for placing your tenth minion, an
- * island perk that scales with how many you run.
- *
- * ## Why reflection
- *
- * EcoMinions is not a compile dependency. The suite's published artifacts are not reliable — every
- * released `com.willfp:EcoMobs` jar turned out to be an empty stub — so nothing here is linked at
- * compile time. The events are resolved from EcoMinions' own classloader at runtime and registered
- * with a dynamic executor. Absent or reshaped EcoMinions means the triggers simply are not registered.
- *
- * ## What each trigger carries
- *
- * `player` and `location` (the minion's), plus `text` set to the minion's type id and `value` to a
- * number that means something per event — the minion's level, or the tier reached for an upgrade.
- * `text` is what lets a config say "only my farm minions" without inventing a filter for it.
+ * Reflective because EcoMinions is not a compile dependency. Each trigger carries `player`, `location`
+ * (the minion's), `text` (the minion type id, so a config can filter by type) and `value` (the
+ * minion's level, or the tier reached for an upgrade).
  */
 object MinionTriggers {
 
@@ -52,22 +36,15 @@ object MinionTriggers {
     val FUEL = RoyalTrigger("minion_fuel", "Fires when a player fuels a minion.", "minions")
 
     /**
-     * Register the triggers and bind them to EcoMinions' events. Returns false when EcoMinions is
-     * absent or its API is not shaped as expected; the caller logs and carries on.
-     *
-     * The triggers are only registered when they can actually fire. Registering them unconditionally
-     * would let a config reference `minion_pickup` on a server with no minion plugin and simply do
-     * nothing, which is harder to diagnose than libreforge reporting an unknown trigger id.
-     *
-     * All four events are resolved before anything is registered, so a renamed event leaves every
-     * trigger unregistered rather than some live and some missing while the log says "off".
+     * Returns false when EcoMinions is absent or reshaped. Registers only when the triggers can fire,
+     * so a config referencing them gets an unknown-id error rather than silence, and resolves all four
+     * events first so it is all or nothing.
      */
     fun register(owner: Plugin): Boolean {
         val ecoMinions = Bukkit.getPluginManager().getPlugin("EcoMinions") ?: return false
         val loader = ecoMinions.javaClass.classLoader
         val bindings = try {
-            // Presence of the API type is the compatibility check — if EcoMinions ever drops it, bail
-            // rather than binding to events whose shape we then cannot read.
+            // the API type's presence is the compatibility check
             Class.forName(API_CLASS, false, loader)
 
             listOf(
@@ -83,10 +60,8 @@ object MinionTriggers {
         return true
     }
 
-    /** Which number a given event should put in the trigger's `value`. */
     private enum class MinionValue { LEVEL, TIER }
 
-    /** One EcoMinions event, fully resolved, ready to bind to its trigger. */
     private class Binding(
         val eventClass: Class<out Event>,
         val trigger: RoyalTrigger,
@@ -123,8 +98,8 @@ object MinionTriggers {
                     )
                 }
             } catch (failed: Throwable) {
-                // EcoMinions changed shape underneath us — drop this dispatch rather than throwing
-                // inside another plugin's event.
+                // EcoMinions changed shape: drop this dispatch rather than throw inside another
+                // plugin's event
             }
         }
     }
@@ -138,9 +113,8 @@ object MinionTriggers {
         @Suppress("UNCHECKED_CAST")
         val eventClass = Class.forName(EVENT_PACKAGE + simpleName, false, loader) as Class<out Event>
 
-        // Resolve the minion accessors off the DECLARED return type — the public Minion interface —
-        // rather than the runtime object's class, which may be a non-public implementation that would
-        // reject the call.
+        // resolve off the declared Minion interface: the runtime class may be non-public and
+        // reject the call
         val getMinion = eventClass.getMethod("getMinion")
         val minionType = getMinion.returnType
         val getType = minionType.getMethod("getType")
@@ -157,6 +131,6 @@ object MinionTriggers {
         )
     }
 
-    /** The executor does the work; Bukkit just needs a listener instance to own the registration. */
+    // the executor does the work; Bukkit just needs a listener to own the registration
     private object EmptyListener : Listener
 }

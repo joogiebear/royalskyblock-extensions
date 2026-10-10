@@ -11,23 +11,15 @@ import java.lang.reflect.Method;
 /**
  * Spawns EcoMobs custom mobs on behalf of RoyalSkyblock.
  *
- * <p>Reflective rather than compiled: the registry lookup ({@code EcoMobs.getByID}) is inherited from
- * libreforge's {@code RegistrableCategory}, which is not resolvable from EcoMobs' published
- * artifacts — and reflection is what keeps this jar loadable on a server with no EcoMobs
- * installed at all.
- *
- * <p>Classes are resolved from EcoMobs' own classloader, not this jar's: the extension classloader
- * delegates to the host's, which only sees EcoMobs if the host happens to declare it. The handles
- * are resolved once, on the first spawn, and reused.
- *
- * <p>Spawns with EcoMobs' {@code COMMAND} reason, because RoyalSkyblock is the deliberate spawner
- * here; natural monster spawning is expected to be off on islands via the island gamerules.
+ * <p>Reflective: {@code EcoMobs.getByID} is inherited from libreforge and can't be compiled against,
+ * and it keeps this jar loadable without EcoMobs. Classes come from EcoMobs' own classloader because
+ * the extension classloader only sees what the host declares. Spawns use the {@code COMMAND} reason.
  */
 public final class EcoMobsProvider implements IslandMobProvider {
 
     static final String ID = "ecomobs";
 
-    /** Resolved on first use; stays null while EcoMobs is absent or unreadable, so the next spawn retries. */
+    // stays null while EcoMobs is absent or unreadable, so the next spawn retries
     private volatile Handles handles;
 
     @Override
@@ -49,7 +41,7 @@ public final class EcoMobsProvider implements IslandMobProvider {
             }
             Object mob = h.getByID.invoke(h.registry, mobId);
             if (mob == null) {
-                return null;                     // no such mob configured in EcoMobs
+                return null;
             }
             Object living = h.spawn.invoke(mob, location, h.command);
             if (living == null) {
@@ -70,7 +62,6 @@ public final class EcoMobsProvider implements IslandMobProvider {
         return h;
     }
 
-    /** Everything {@link #spawn} needs from EcoMobs, looked up once. */
     private record Handles(Object registry, Method getByID, Method spawn, Object command, Method getEntity) {
 
         @SuppressWarnings({"unchecked", "rawtypes"})

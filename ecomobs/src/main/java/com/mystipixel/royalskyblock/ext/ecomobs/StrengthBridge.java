@@ -20,32 +20,10 @@ import java.util.List;
 /**
  * Scales a spawned EcoMob's health and damage by the level of the island it appeared on.
  *
- * <p><b>Why code rather than EcoMobs config.</b> EcoMobs evaluates its spawn conditions against the
- * spawn <em>location</em> ({@code conditions.areMet(location.toDispatcher(), ...)}), with no player in
- * context. libreforge's placeholder conditions resolve via {@code dispatcher.get<Player>()}, so
- * {@code %royalskyblock_island_level%} cannot resolve at an EcoMobs spawn — the config route is a dead
- * end. Reading the island level from the mob's world after it has spawned needs no player at all.
- *
- * <p><b>Why reflection rather than a compile dependency.</b> Every published {@code com.willfp:EcoMobs}
- * artifact is an empty two-entry stub containing no classes — verified across 2026.27, .29, .30, .31
- * and .32 — so there is nothing to compile against. A build can appear to work when a real jar has
- * been hand-installed into a developer's local Maven repository, but that is invisible to CI and to
- * anyone else cloning the project. The shipped plugin jar does contain
- * {@code com.willfp.ecomobs.event.EcoMobSpawnEvent}, so the event is resolved and registered at
- * runtime instead.
- *
- * <p><b>Version independence.</b> Attributes are looked up by their stable registry key
- * ({@code minecraft:max_health} / {@code minecraft:attack_damage}) rather than the {@code Attribute}
- * enum constant, whose Java name churned across Bukkit versions (the {@code GENERIC_} prefix).
- *
- * <p><b>Which spawns.</b> Only those whose EcoMobs {@code SpawnReason} is listed in
- * {@code strength.spawn-reasons}. Spawners and spawn eggs are left out by default: they are what
- * players farm with, and a spawner farm on a high-level island would otherwise produce mobs at the
- * full cap.
- *
- * <p><b>Always registered.</b> The listener goes in regardless of {@code strength.enabled} and reads
- * the config on every spawn, so turning scaling on or off takes effect on a host reload rather than
- * needing a restart.
+ * <p>Done in code because EcoMobs checks spawn conditions against the location with no player, so
+ * {@code %royalskyblock_island_level%} cannot resolve there. Reflective because every published
+ * {@code com.willfp:EcoMobs} artifact is an empty stub; the spawn event is resolved at runtime.
+ * Attributes are looked up by registry key because the {@code Attribute} enum names changed.
  */
 public final class StrengthBridge implements Listener {
 
@@ -59,7 +37,7 @@ public final class StrengthBridge implements Listener {
     private final Method getEntity;
     private final Method getReason;              // null if EcoMobs stops exposing it
 
-    /** Used when {@code strength.spawn-reasons} is absent: everything but spawners and eggs. */
+    // used when strength.spawn-reasons is absent: everything but spawners and eggs
     private static final List<String> DEFAULT_REASONS = List.of("COMMAND", "NATURAL", "TOTEM");
 
     private StrengthBridge(EcoMobsExtension extension, Method getMob, Method getEntity, Method getReason) {
@@ -69,14 +47,7 @@ public final class StrengthBridge implements Listener {
         this.getReason = getReason;
     }
 
-    /**
-     * Resolve EcoMobs' spawn event and register against it. Returns false when EcoMobs is absent or
-     * its event is not shaped the way this expects; the caller logs and carries on, and island mobs
-     * simply are not scaled.
-     *
-     * <p>Registered at HIGH rather than MONITOR: MONITOR is for observers and this mutates the mob.
-     * HIGH still runs after EcoMobs has finished configuring the entity.
-     */
+    // HIGH, not MONITOR: this mutates the mob, and HIGH still runs after EcoMobs has configured it.
     @SuppressWarnings("unchecked")
     static boolean register(EcoMobsExtension extension, Plugin owner) {
         try {
@@ -89,15 +60,14 @@ public final class StrengthBridge implements Listener {
                 return false;
             }
             Method getMob = eventClass.getMethod("getMob");
-            // Resolve getEntity() off the DECLARED return type (EcoMobs' public mob interface) rather
-            // than the runtime object's class, which may be a non-public implementation that would
-            // reject the call.
+            // resolve off the declared return type: the runtime class may be a non-public
+            // implementation that rejects the call
             Method getEntity = getMob.getReturnType().getMethod("getEntity");
             Method getReason;
             try {
                 getReason = eventClass.getMethod("getReason");
             } catch (NoSuchMethodException noReason) {
-                getReason = null;                // cannot filter by reason — scale every spawn
+                getReason = null;                // cannot filter by reason, scale every spawn
             }
 
             StrengthBridge bridge = new StrengthBridge(extension, getMob, getEntity, getReason);
@@ -113,10 +83,7 @@ public final class StrengthBridge implements Listener {
         }
     }
 
-    /**
-     * Wrapped whole: this runs inside EcoMobs' own {@code callEvent}, so anything thrown here — a
-     * reshaped EcoMobs, the host mid-shutdown — would surface as an error in someone else's spawn.
-     */
+    // runs inside EcoMobs' own callEvent, so nothing thrown here may escape into someone else's spawn
     private void handle(Event event) {
         try {
             scaleSpawn(event);
@@ -139,7 +106,7 @@ public final class StrengthBridge implements Listener {
         }
         Island island = RoyalSkyblockPlugin.Companion.get().islands().getIslandByWorld(entity.getWorld());
         if (island == null || island.level() <= 0) {
-            return;                              // not on an island, or level 0 — leave the mob as-is
+            return;                              // not on an island, or level 0: leave the mob as-is
         }
         double level = island.level();
         scale(entity, MAX_HEALTH, multiplier(config, level, "health-scale-per-level", 0.002), true);
@@ -168,7 +135,6 @@ public final class StrengthBridge implements Listener {
         }
     }
 
-    /** {@code 1 + level*scale}, clamped to {@code [1, max-multiplier]}. */
     private double multiplier(FileConfiguration config, double level, String scaleKey, double fallback) {
         return StrengthMath.multiplier(level,
                 config.getDouble("strength." + scaleKey, fallback),

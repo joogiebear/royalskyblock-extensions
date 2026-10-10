@@ -6,12 +6,8 @@ import org.bukkit.Bukkit;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * EcoSkills, as a progression backend RoyalSkyblock can ask questions of.
- *
- * <p>Which skill counts as "combat" and which stat as "intimidation" are not decided here — they are
- * admin config in RoyalSkyblock, because they are facts about island mobs rather than about EcoSkills.
- * This backend is only asked for a reader by id and says whether it can supply one, which is why this
- * extension ships no config file of its own.
+ * EcoSkills as a RoyalSkyblock progression backend. Which skill counts as "combat" and which stat as
+ * "intimidation" is RoyalSkyblock config, so this extension ships no config of its own.
  */
 public final class EcoSkillsProgression implements ProgressionProvider {
 
@@ -28,11 +24,8 @@ public final class EcoSkillsProgression implements ProgressionProvider {
     }
 
     /**
-     * A reader for a skill, or null if EcoSkills cannot be reached at all.
-     *
-     * <p>Null means "no backend", never "no such skill". Whether {@code combat} exists genuinely cannot
-     * be answered at startup — EcoSkills registers its skills during its own enable — so answering it
-     * here would report healthy configs as broken on every boot.
+     * Null means EcoSkills can't be reached, never "no such skill": skills register during EcoSkills'
+     * own enable, so checking the id here would flag healthy configs on every boot.
      */
     @Override
     public @Nullable CombatLevelSource skill(String skillId, int fallback) {
