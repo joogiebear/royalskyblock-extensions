@@ -4,6 +4,7 @@ import com.mystipixel.royalskyblock.RoyalSkyblockPlugin
 import com.willfp.eco.core.EcoPlugin
 import com.willfp.eco.core.extensions.Extension
 import org.bukkit.Bukkit
+import java.io.File
 
 /**
  * Publishes EcoMinions activity to libreforge (four triggers and a condition) for the whole eco suite.
@@ -13,6 +14,8 @@ import org.bukkit.Bukkit
  * fails with an unknown-id violation if the trigger isn't registered yet.
  */
 class EcoMinionsExtension(plugin: EcoPlugin) : Extension(plugin) {
+
+    private var pickups: PickupAllowance? = null
 
     override fun onEnable() {
         val host = RoyalSkyblockPlugin.get()
@@ -29,7 +32,11 @@ class EcoMinionsExtension(plugin: EcoPlugin) : Extension(plugin) {
 
         // each wrapped and reported separately: an extension that throws in onEnable disables its host
         try {
-            if (MinionTriggers.register(plugin)) {
+            // extensions/<name>/, not getDataFolder() (that is the host's folder)
+            val file = File(File(File(plugin.dataFolder, "extensions"), name), "pickups.txt").toPath()
+            val allowance = PickupAllowance(file, logger)
+            pickups = allowance
+            if (MinionTriggers.register(plugin, allowance)) {
                 logger.info("Registered minion triggers (minion_pickup, minion_place, minion_upgrade, minion_fuel).")
             } else {
                 logger.warning("EcoMinions is installed but its events could not be read: minion triggers are off.")
@@ -51,5 +58,6 @@ class EcoMinionsExtension(plugin: EcoPlugin) : Extension(plugin) {
 
     override fun onDisable() {
         // libreforge has no unregister; the registries are rebuilt with the host on reload
+        pickups?.close()
     }
 }

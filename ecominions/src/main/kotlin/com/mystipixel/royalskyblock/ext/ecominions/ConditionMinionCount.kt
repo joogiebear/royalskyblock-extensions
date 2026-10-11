@@ -80,7 +80,7 @@ object ConditionMinionCount : Condition<NoCompileData>("minion_count_above") {
     }
 
     // null if EcoMinions can't answer right now
-    private fun countFor(player: Player): Int? = try {
+    internal fun countFor(player: Player): Int? = try {
         val api = apiGetOrNull?.invoke(null)
         if (api == null) {
             null

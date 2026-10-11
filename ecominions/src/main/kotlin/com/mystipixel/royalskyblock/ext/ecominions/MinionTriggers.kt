@@ -23,8 +23,11 @@ object MinionTriggers {
     private const val API_CLASS = "com.exanthiax.ecominions.api.EcoMinionsApi"
     private const val EVENT_PACKAGE = "com.exanthiax.ecominions.api.event."
 
-    /** Fires when a player collects the contents of a minion. `value` is the minion's level. */
-    val PICKUP = RoyalTrigger("minion_pickup", "Fires when a player collects from a minion.", "minions")
+    /**
+     * Fires when a player picks a minion up out of the world, at most once per minion they have had
+     * placed at once (see [PickupAllowance]). `value` is the minion's level.
+     */
+    val PICKUP = RoyalTrigger("minion_pickup", "Fires when a player picks up a minion, once per minion they own.", "minions")
 
     /** Fires when a player places a minion. `value` is the minion's level. */
     val PLACE = RoyalTrigger("minion_place", "Fires when a player places a minion.", "minions")
@@ -40,7 +43,7 @@ object MinionTriggers {
      * so a config referencing them gets an unknown-id error rather than silence, and resolves all four
      * events first so it is all or nothing.
      */
-    fun register(owner: Plugin): Boolean {
+    internal fun register(owner: Plugin, pickups: PickupAllowance): Boolean {
         val ecoMinions = Bukkit.getPluginManager().getPlugin("EcoMinions") ?: return false
         val loader = ecoMinions.javaClass.classLoader
         val bindings = try {
@@ -48,8 +51,13 @@ object MinionTriggers {
             Class.forName(API_CLASS, false, loader)
 
             listOf(
-                resolve(loader, "MinionPickupEvent", PICKUP, MinionValue.LEVEL),
-                resolve(loader, "MinionPlaceEvent", PLACE, MinionValue.LEVEL),
+                resolve(loader, "MinionPickupEvent", PICKUP, MinionValue.LEVEL) { player ->
+                    pickups.tryUse(player.uniqueId, ConditionMinionCount.countFor(player))
+                },
+                resolve(loader, "MinionPlaceEvent", PLACE, MinionValue.LEVEL) { player ->
+                    pickups.observe(player.uniqueId, ConditionMinionCount.countFor(player))
+                    true
+                },
                 resolve(loader, "MinionUpgradeEvent", UPGRADE, MinionValue.TIER),
                 resolve(loader, "MinionFuelEvent", FUEL, MinionValue.LEVEL)
             )
@@ -71,7 +79,8 @@ object MinionTriggers {
         val getLevel: Method,
         val getType: Method,
         val getTypeId: Method,
-        val getTier: Method?
+        val getTier: Method?,
+        val allow: (Player) -> Boolean
     ) {
         fun bind(owner: Plugin) {
             Triggers.register(trigger)
@@ -89,7 +98,7 @@ object MinionTriggers {
             try {
                 val minion = getMinion.invoke(event)
                 val player = getPlayer.invoke(event) as? Player
-                if (minion != null && player != null) {
+                if (minion != null && player != null && allow(player)) {
                     trigger.fire(
                         player,
                         getLocation.invoke(minion) as? Location,
@@ -108,7 +117,8 @@ object MinionTriggers {
         loader: ClassLoader,
         simpleName: String,
         trigger: RoyalTrigger,
-        value: MinionValue
+        value: MinionValue,
+        allow: (Player) -> Boolean = { true }
     ): Binding {
         @Suppress("UNCHECKED_CAST")
         val eventClass = Class.forName(EVENT_PACKAGE + simpleName, false, loader) as Class<out Event>
@@ -127,7 +137,8 @@ object MinionTriggers {
             getLevel = minionType.getMethod("getLevel"),
             getType = getType,
             getTypeId = getType.returnType.getMethod("getId"),
-            getTier = if (value == MinionValue.TIER) eventClass.getMethod("getTier") else null
+            getTier = if (value == MinionValue.TIER) eventClass.getMethod("getTier") else null,
+            allow = allow
         )
     }
 

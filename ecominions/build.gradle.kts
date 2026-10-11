@@ -17,6 +17,15 @@ dependencies {
     // No version: the Kotlin plugin aligns kotlin(...) dependencies with its own version, so the
     // stdlib can never drift from the compiler pinned in the root build.
     compileOnly(kotlin("stdlib"))
+
+    testImplementation(kotlin("stdlib"))
+    testImplementation(platform("org.junit:junit-bom:5.13.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 kotlin {
