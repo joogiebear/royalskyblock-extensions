@@ -1,3 +1,12 @@
+## 2026.41.0 - 2026-10-10
+
+### Fixes
+- don't repeat a changelog section when a release is retried (`873fe2b`)
+- use the ISO week-year for release versions (`f7b7d67`)
+
+### Documentation
+- add AGENTS.md with the suite's development standards (`a0073dc`)
+
 ## 2026.39.1 — 2026-09-24
 
 ### 🐛 Fixes
