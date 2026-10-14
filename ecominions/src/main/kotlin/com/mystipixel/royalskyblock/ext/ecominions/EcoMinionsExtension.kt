@@ -6,10 +6,12 @@ import com.willfp.eco.core.extensions.Extension
 import org.bukkit.Bukkit
 
 /**
- * Publishes EcoMinions activity to libreforge (four triggers and a condition) for the whole eco suite.
+ * Adds what EcoMinions doesn't give players in libreforge (the `minion_fuel` and `minion_owner_mine`
+ * triggers and the `minion_count_above` condition) for the whole eco suite. EcoMinions' own triggers,
+ * such as `minion_pickup` and `minion_place`, come from EcoMinions.
  *
  * Registration must happen in onEnable: eco enables extensions before the host's enable, where
- * RoyalSkyblock compiles its perk and upgrade effect chains, and a chain referencing `minion_pickup`
+ * RoyalSkyblock compiles its perk and upgrade effect chains, and a chain referencing `minion_owner_mine`
  * fails with an unknown-id violation if the trigger isn't registered yet.
  */
 class EcoMinionsExtension(plugin: EcoPlugin) : Extension(plugin) {
@@ -30,7 +32,7 @@ class EcoMinionsExtension(plugin: EcoPlugin) : Extension(plugin) {
         // each wrapped and reported separately: an extension that throws in onEnable disables its host
         try {
             if (MinionTriggers.register(plugin)) {
-                logger.info("Registered minion triggers (minion_pickup, minion_place, minion_upgrade, minion_fuel).")
+                logger.info("Registered minion triggers (minion_fuel, minion_owner_mine).")
             } else {
                 logger.warning("EcoMinions is installed but its events could not be read: minion triggers are off.")
             }
