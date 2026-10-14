@@ -8,7 +8,7 @@ in `plugins/RoyalSkyblock/extensions/`.
 | `EcoSkills` | EcoSkills | skill levels and stats — island mob tiers, intimidation |
 | `EcoMobs` | EcoMobs | island mobs spawned from EcoMobs configs (`island-mobs.provider: ecomobs`) |
 | `MythicMobs` | MythicMobs | island mobs spawned from MythicMobs configs (`island-mobs.provider: mythicmobs`) |
-| `EcoMinions` | EcoMinions | the `minion_fuel` trigger and `minion_count_above` condition for perks (EcoMinions registers its own `minion_collect`, `minion_pickup` and other triggers) |
+| `EcoMinions` | EcoMinions | `minion_owner_mine` and `minion_fuel` triggers and the `minion_count_above` condition for perks (EcoMinions registers its own `minion_pickup`, `minion_place` and other triggers, but its mining triggers only reach the minion, not the player) |
 
 ---
 
