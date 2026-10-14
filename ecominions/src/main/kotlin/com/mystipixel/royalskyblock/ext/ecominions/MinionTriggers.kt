@@ -12,55 +12,41 @@ import org.bukkit.plugin.Plugin
 import java.lang.reflect.Method
 
 /**
- * Exposes EcoMinions activity to libreforge as triggers, usable from any eco plugin's config.
+ * Adds the minion trigger EcoMinions doesn't register itself, usable from any eco plugin's config.
  *
- * Reflective because EcoMinions is not a compile dependency. Each trigger carries `player`, `location`
+ * EcoMinions registers its own `minion_pickup`, `minion_place`, `minion_upgrade`, `minion_collect` and
+ * more. This adapter used to register the first three too, which put two triggers under one id; it now
+ * leaves them to EcoMinions and only adds `minion_fuel`.
+ *
+ * Reflective because EcoMinions is not a compile dependency. The trigger carries `player`, `location`
  * (the minion's), `text` (the minion type id, so a config can filter by type) and `value` (the
- * minion's level, or the tier reached for an upgrade).
+ * minion's level).
  */
 object MinionTriggers {
 
     private const val API_CLASS = "com.exanthiax.ecominions.api.EcoMinionsApi"
     private const val EVENT_PACKAGE = "com.exanthiax.ecominions.api.event."
 
-    /** Fires when a player collects the contents of a minion. `value` is the minion's level. */
-    val PICKUP = RoyalTrigger("minion_pickup", "Fires when a player collects from a minion.", "minions")
-
-    /** Fires when a player places a minion. `value` is the minion's level. */
-    val PLACE = RoyalTrigger("minion_place", "Fires when a player places a minion.", "minions")
-
-    /** Fires when a player upgrades a minion. `value` is the tier reached. */
-    val UPGRADE = RoyalTrigger("minion_upgrade", "Fires when a player upgrades a minion.", "minions")
-
     /** Fires when a player fuels a minion. `value` is the minion's level. */
     val FUEL = RoyalTrigger("minion_fuel", "Fires when a player fuels a minion.", "minions")
 
     /**
-     * Returns false when EcoMinions is absent or reshaped. Registers only when the triggers can fire,
-     * so a config referencing them gets an unknown-id error rather than silence, and resolves all four
-     * events first so it is all or nothing.
+     * Returns false when EcoMinions is absent or reshaped. Registers only when the trigger can fire,
+     * so a config referencing it gets an unknown-id error rather than silence.
      */
     fun register(owner: Plugin): Boolean {
         val ecoMinions = Bukkit.getPluginManager().getPlugin("EcoMinions") ?: return false
         val loader = ecoMinions.javaClass.classLoader
-        val bindings = try {
+        val binding = try {
             // the API type's presence is the compatibility check
             Class.forName(API_CLASS, false, loader)
-
-            listOf(
-                resolve(loader, "MinionPickupEvent", PICKUP, MinionValue.LEVEL),
-                resolve(loader, "MinionPlaceEvent", PLACE, MinionValue.LEVEL),
-                resolve(loader, "MinionUpgradeEvent", UPGRADE, MinionValue.TIER),
-                resolve(loader, "MinionFuelEvent", FUEL, MinionValue.LEVEL)
-            )
+            resolve(loader, "MinionFuelEvent", FUEL)
         } catch (notEcoMinions: Throwable) {
             return false
         }
-        bindings.forEach { it.bind(owner) }
+        binding.bind(owner)
         return true
     }
-
-    private enum class MinionValue { LEVEL, TIER }
 
     private class Binding(
         val eventClass: Class<out Event>,
@@ -70,8 +56,7 @@ object MinionTriggers {
         val getLocation: Method,
         val getLevel: Method,
         val getType: Method,
-        val getTypeId: Method,
-        val getTier: Method?
+        val getTypeId: Method
     ) {
         fun bind(owner: Plugin) {
             Triggers.register(trigger)
@@ -94,7 +79,7 @@ object MinionTriggers {
                         player,
                         getLocation.invoke(minion) as? Location,
                         getTypeId.invoke(getType.invoke(minion)) as? String,
-                        ((getTier?.invoke(event) ?: getLevel.invoke(minion)) as? Int)?.toDouble() ?: 0.0
+                        (getLevel.invoke(minion) as? Int)?.toDouble() ?: 0.0
                     )
                 }
             } catch (failed: Throwable) {
@@ -104,12 +89,7 @@ object MinionTriggers {
         }
     }
 
-    private fun resolve(
-        loader: ClassLoader,
-        simpleName: String,
-        trigger: RoyalTrigger,
-        value: MinionValue
-    ): Binding {
+    private fun resolve(loader: ClassLoader, simpleName: String, trigger: RoyalTrigger): Binding {
         @Suppress("UNCHECKED_CAST")
         val eventClass = Class.forName(EVENT_PACKAGE + simpleName, false, loader) as Class<out Event>
 
@@ -126,8 +106,7 @@ object MinionTriggers {
             getLocation = minionType.getMethod("getLocation"),
             getLevel = minionType.getMethod("getLevel"),
             getType = getType,
-            getTypeId = getType.returnType.getMethod("getId"),
-            getTier = if (value == MinionValue.TIER) eventClass.getMethod("getTier") else null
+            getTypeId = getType.returnType.getMethod("getId")
         )
     }
 

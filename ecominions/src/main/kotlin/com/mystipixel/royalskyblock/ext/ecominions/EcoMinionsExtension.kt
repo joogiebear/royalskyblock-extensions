@@ -6,10 +6,12 @@ import com.willfp.eco.core.extensions.Extension
 import org.bukkit.Bukkit
 
 /**
- * Publishes EcoMinions activity to libreforge (four triggers and a condition) for the whole eco suite.
+ * Adds what EcoMinions doesn't publish to libreforge itself (the `minion_fuel` trigger and the
+ * `minion_count_above` condition) for the whole eco suite. EcoMinions' own triggers, such as
+ * `minion_collect` and `minion_pickup`, come from EcoMinions.
  *
  * Registration must happen in onEnable: eco enables extensions before the host's enable, where
- * RoyalSkyblock compiles its perk and upgrade effect chains, and a chain referencing `minion_pickup`
+ * RoyalSkyblock compiles its perk and upgrade effect chains, and a chain referencing `minion_fuel`
  * fails with an unknown-id violation if the trigger isn't registered yet.
  */
 class EcoMinionsExtension(plugin: EcoPlugin) : Extension(plugin) {
@@ -23,19 +25,19 @@ class EcoMinionsExtension(plugin: EcoPlugin) : Extension(plugin) {
         }
 
         if (Bukkit.getPluginManager().getPlugin("EcoMinions") == null) {
-            logger.warning("EcoMinions is not installed: no minion triggers or conditions registered.")
+            logger.warning("EcoMinions is not installed: minion_fuel and minion_count_above not registered.")
             return
         }
 
         // each wrapped and reported separately: an extension that throws in onEnable disables its host
         try {
             if (MinionTriggers.register(plugin)) {
-                logger.info("Registered minion triggers (minion_pickup, minion_place, minion_upgrade, minion_fuel).")
+                logger.info("Registered the minion_fuel trigger.")
             } else {
-                logger.warning("EcoMinions is installed but its events could not be read: minion triggers are off.")
+                logger.warning("EcoMinions is installed but its events could not be read: minion_fuel is off.")
             }
         } catch (failed: Throwable) {
-            logger.severe("Could not register minion triggers: $failed")
+            logger.severe("Could not register minion_fuel: $failed")
         }
 
         try {
